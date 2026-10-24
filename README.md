@@ -3,6 +3,8 @@
 一个 WorkBuddy Skill：**聚餐点餐、麦门省钱凑单、热量控制配餐、套餐推荐、活动新品推荐**，五个场景一个入口。搭配方案由确定性求解脚本计算（总价/总热量不靠心算），实时菜单、价格、活动、官方营养数据全部来自**麦当劳 MCP**。
 
 > 2026 麦当劳程序员创意开发大赛 × WaytoAGI 1024 切磋大会「用餐」赛道参赛作品。
+>
+> **在线演示**：https://ni-guvara.github.io/mcd-meal-planner/ ｜ **零 Token 体验**：`cd skill/scripts && python plan_meal.py --demo`
 
 ## 它解决什么问题
 
