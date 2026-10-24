@@ -12,6 +12,7 @@
 """
 import argparse
 import csv
+import json
 import sys
 from pathlib import Path
 
@@ -188,9 +189,86 @@ def plan_meal(people, budget, no_spicy, no_beef, veg_count, pescatarian):
     return lines
 
 
+# ================= 券最优匹配 =================
+# 券模型（agent 从 MCP available-coupons 的券标题翻译而来），一张订单只能用一张券：
+#   free_item            免费换购: {"name","type","item"}                  -> 购物车含该单品时，其价格全免
+#   fixed_price          固定价券: {"name","type","item","price"}          -> 购物车含该单品时，按券价结算
+#   fixed_price_n        N件任选价: {"name","type","items","count","price"} -> 购物车含 count 件候选时，总价降为券价
+#   threshold_discount   满减券:   {"name","type","threshold","discount"}  -> 满 threshold 减 discount
+#   percent              折扣券:   {"name","type","percent"}               -> 整单打 percent 折
+
+COUPONS = []  # 由 --coupons 注入
+
+
+def coupon_discount(cp, items):
+    """返回 (优惠额, 触发说明, 用到的单品名列表)；不可用返回 (0, None, [])"""
+    names = [x["name"] for x in items]
+    total = sum(x["price"] for x in items)
+    t = cp["type"]
+    if t == "free_item":
+        hit = next((x for x in items if x["name"] == cp["item"]), None)
+        if hit:
+            return hit["price"], f"「{hit['name']}」免费", [hit["name"]]
+    elif t == "fixed_price":
+        hit = next((x for x in items if x["name"] == cp["item"]), None)
+        if hit and cp["price"] < hit["price"] - 1e-9:
+            return hit["price"] - cp["price"], f"「{hit['name']}」{hit['price']:g}→{cp['price']:g} 元", [hit["name"]]
+    elif t == "fixed_price_n":
+        hits = [x for x in items if x["name"] in cp["items"]]
+        if len(hits) >= cp["count"]:
+            sub = sum(x["price"] for x in hits[:cp["count"]])
+            if cp["price"] < sub - 1e-9:
+                return sub - cp["price"], f"{cp['count']} 件候选（{'+'.join(x['name'] for x in hits[:cp['count']])}，{sub:g} 元）→ 券价 {cp['price']:g} 元", [x["name"] for x in hits[:cp["count"]]]
+    elif t == "threshold_discount":
+        if total >= cp["threshold"]:
+            return cp["discount"], f"满 {cp['threshold']:g} 减 {cp['discount']:g}（本单 {total:g} 元达标）", []
+    elif t == "percent":
+        d = total * (1 - cp["percent"])
+        if d > 1e-9:
+            return d, f"整单 {cp['percent']:g} 折（省 {d:.1f} 元）", []
+    return 0, None, []
+
+
+def plan_coupons(optimized, menu, notes):
+    """对优化后的购物车枚举所有券，返回 (lines, best_coupon_discount, applied_names)"""
+    used_names = {x["name"] for x in optimized}
+    cands = [x for x in menu if x["name"] not in used_names and x["price"] <= 25]
+    total = sum(x["price"] for x in optimized)
+    best = (0, None, None, [])
+    rows = []
+    for cp in COUPONS:
+        d, why, used = coupon_discount(cp, optimized)
+        if d > 1e-9:
+            rows.append(f"      可用「{cp['name']}」省 {d:.1f} 元（{why}）")
+            if d > best[0]:
+                best = (d, cp, why, used)
+        elif cp["type"] == "threshold_discount" and total < cp["threshold"]:
+            gap = cp["threshold"] - total
+            add_on = min((x for x in cands if x["price"] >= gap - 1e-9),
+                         key=lambda x: x["price"], default=None)
+            cheapest = min(cands, key=lambda x: x["price"]) if cands else None
+            if add_on:
+                net = cp["discount"] - add_on["price"]
+                verdict = f"值（净省 {net:.1f} 元）" if net > 0 else f"不值（倒贴 {add_on['price'] - cp['discount']:.1f} 元）"
+                rows.append(f"      「{cp['name']}」差 {gap:.1f} 元：加 {add_on['name']}（{add_on['price']:g} 元）凑单 → {verdict}")
+            elif cheapest:
+                rows.append(f"      「{cp['name']}」差 {gap:.1f} 元，最小单品 {cheapest['name']} {cheapest['price']:g} 元也够不着，放弃")
+    if not rows:
+        return ["  券匹配：无可用券"], 0.0, []
+    lines = ["  券最优匹配（一张订单只能用一张券，按「这单实际能减多少」挑）："] + rows
+    d, cp, why, used = best
+    if cp is None:
+        lines.append("    → 结论：所有可用券都不如不凑单/换券，保持原单")
+        return lines, 0.0, []
+    lines.append(f"    → 选定「{cp['name']}」省 {d:.1f} 元（{why}）")
+    return lines, d, used
+
+
 # ================= 省钱凑单模式 =================
-def plan_save(items_wanted, no_spicy, no_beef):
+def plan_save(items_wanted, no_spicy, no_beef, coupons=None):
     notes = []
+    global COUPONS
+    COUPONS = coupons or []
     menu = filter_restrictions(load_menu(), no_spicy, no_beef, False, notes)
 
     resolved, missing = [], []
@@ -250,8 +328,29 @@ def plan_save(items_wanted, no_spicy, no_beef):
     optimized_total = sum(x["price"] for x in optimized)
     lines += fmt_list([(x, 1) for x in optimized])
     lines.append(f"原价单：{original:g} 元 → 省钱单：{optimized_total:g} 元 | 共省 {original - optimized_total:g} 元")
+
+    # 规则3: 券最优匹配（一张订单一张券，逐券算实减，顺带提示凑单陷阱）
+    # 双路对比：结构优化后用券 vs 原始清单直接用券，取最终实付更低的那条
+    if COUPONS:
+        coupon_lines, best_d, used = plan_coupons(optimized, menu, notes)
+        lines += coupon_lines
+        d_orig = max((coupon_discount(cp, resolved)[0] for cp in COUPONS), default=0.0)
+        final_opt = optimized_total - best_d
+        final_orig = original - d_orig
+        route = None
+        if final_orig < final_opt - 1e-9:
+            route = "原单直接用券"
+            final = final_orig
+        elif best_d > 0:
+            route = "优化后用券"
+            final = final_opt
+        else:
+            final = final_opt
+        if route:
+            lines.append(f"用券后实付：{final:.1f} 元（{route}）| 原价单 {original:g} 元，累计省 {original - final:.1f} 元")
     lines += notes_block(notes, [
-        "省钱三板斧：套餐拆散点对比 → 1+1随心配平替 → 快照价为上限，App 券只会更低",
+        "省钱四板斧：套餐拆散点对比 → 1+1随心配平替 → 券逐张枚举取实减最大 → 满减差一点先算凑单净省，不盲目凑",
+        "券规则由 MCP available-coupons 的券标题翻译而来，一张订单只能用一张券",
     ])
     return lines
 
@@ -386,6 +485,9 @@ def main():
     ap.add_argument("--budget", type=float, default=None)
     ap.add_argument("--calorie-max", type=float, default=800, help="每人热量上限(千卡)")
     ap.add_argument("--items", type=str, default="", help="省钱模式：想吃的单品，逗号分隔")
+    ap.add_argument("--coupons", type=str, default="",
+                    help='省钱模式：券列表 JSON，如 [{"name":"11.9元麦辣鸡腿堡","type":"fixed_price","item":"麦辣鸡腿汉堡","price":11.9}]'
+                         " 券类型见脚本头部注释")
     ap.add_argument("--no-spicy", action="store_true")
     ap.add_argument("--no-beef", action="store_true")
     ap.add_argument("--veg", type=int, default=0)
@@ -400,7 +502,13 @@ def main():
 
     if args.mode == "save":
         items = [s.strip() for s in args.items.split(",") if s.strip()]
-        lines = plan_save(items, args.no_spicy, args.no_beef)
+        coupons = []
+        if args.coupons.strip():
+            try:
+                coupons = json.loads(args.coupons)
+            except json.JSONDecodeError as e:
+                ap.error(f"--coupons 不是合法 JSON：{e}")
+        lines = plan_save(items, args.no_spicy, args.no_beef, coupons)
     elif args.mode == "calorie":
         if args.budget is None:
             ap.error("calorie 模式需要 --budget")
