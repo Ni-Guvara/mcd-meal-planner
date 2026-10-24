@@ -37,6 +37,12 @@ python "<skill目录>/scripts/plan_meal.py" --mode save --items "巨无霸套餐
 
 # 热量控制：每人上限，预算必填
 python "<skill目录>/scripts/plan_meal.py" --mode calorie --people 2 --budget 80 --calorie-max 700
+
+# 离线演示：零 token 一条命令跑通省钱全链路（内置 demo 券），适合录屏开场
+python "<skill目录>/scripts/plan_meal.py" --demo
+
+# 开饭确认单：plan 输出直接管道进小票生成器
+python "<skill目录>/scripts/plan_meal.py" --people 4 --budget 150 | python "<skill目录>/scripts/make_receipt.py" --store "门店名" --out 确认单.html
 ```
 
 内置算法要点（输出里的"依据"与之一一对应，不要另编理由）：
@@ -79,6 +85,7 @@ python "<skill目录>/scripts/plan_meal.py" --mode calorie --people 2 --budget 8
 **规则：**
 
 - 配置了 mcd-mcp 的会话中，价格/菜单/活动一律 **MCP 实时数据优先**，`menu.csv` 快照只做兜底和离线演示
+- **实时价注入（连 MCP 时必做，保证"最优组合"在实时价下仍是最优）**：`query-meals` 拉到实时价后，用 Python 把实时价写进一份临时 CSV（列结构同 menu.csv：`name,category,price,calories,satiety,tags`；单品按名称对齐，实时菜单没有的快照单品保留原价），再传 `--menu <临时CSV>` 跑脚本——这样搭配决策基于实时价，核账时才不会出现"换组合更省"的尴尬
 - 价格计算：脚本逻辑负责"怎么配"，`calculate-price` 负责"最终多少钱"——两者不一致时以 MCP 为准并说明
 - 营养热量：连着 MCP 时用 `list-nutrition-foods` 的官方值替换快照估算值输出
 - 未配置 MCP 时：三模式照常跑快照价，活动新品场景如实说"需要连麦当劳 MCP 或查 App"
@@ -89,7 +96,7 @@ python "<skill目录>/scripts/plan_meal.py" --mode calorie --people 2 --budget 8
 - 合计 + 预算剩余 + 全单千卡
 - "依据"条目直接采用脚本输出，不要手写替代
 - 固定尾注：快照价/估算热量，实际以门店/App 为准
-- 用户要"单子/海报"→ 生成 HTML「开饭确认单」（M 黄底红字，点单小票风），present_files 展示
+- 用户要"单子/海报"→ 把 plan 输出管道进 `scripts/make_receipt.py --store 门店名 --out 确认单.html`（M 黄底红字小票风，自动解析单品/总价/省钱额），present_files 展示
 
 ## 菜单数据维护
 
