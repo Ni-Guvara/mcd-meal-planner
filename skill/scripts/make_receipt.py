@@ -18,13 +18,14 @@ KCAL_RE = re.compile(r"([\d.]+)\s*千卡/份")
 TOTAL_RE = re.compile(r"合计：([\d.]+)\s*元")
 SAVE_RE = re.compile(r"原价单：([\d.]+)\s*元\s*→\s*省钱单：([\d.]+)\s*元\s*\|\s*共省\s*([\d.]+)\s*元")
 COUPON_RE = re.compile(r"用券后实付：([\d.]+)\s*元.*?累计省\s*([\d.]+)\s*元")
+KCAL_TOTAL_RE = re.compile(r"全单约\s*([\d.]+)\s*千卡")
 MEAL_RE = re.compile(r"=== 聚餐方案 \| (\d+) 人 \| 预算 ([\d.]+) 元")
 CAL_RE = re.compile(r"=== 热量控制方案 \| (\d+) 人 \| 每人上限 ([\d.]+) 千卡 \| 预算 ([\d.]+) 元")
 SAVE_TITLE_RE = re.compile(r"=== 麦门省钱单 ===")
 
 
 def parse(text):
-    items, head, total, saved, coupon_pay = [], "", 0.0, 0.0, None
+    items, head, total, saved, coupon_pay, kcal_total = [], "", 0.0, 0.0, None, 0.0
     for line in text.splitlines():
         m = ITEM_RE.search(line)
         if m:
@@ -47,6 +48,9 @@ def parse(text):
             coupon_pay = (float(m.group(1)), float(m.group(2)))
             total = float(m.group(1))
             saved = float(m.group(2))
+        m = KCAL_TOTAL_RE.search(line)
+        if m:
+            kcal_total = float(m.group(1))
         m = MEAL_RE.search(line)
         if m:
             head = f"{m.group(1)} 人聚餐 · 预算 ¥{float(m.group(2)):g}"
@@ -55,10 +59,10 @@ def parse(text):
             head = f"{m.group(1)} 人控卡配餐 · 每人 ≤{float(m.group(2)):g} 千卡 · 预算 ¥{float(m.group(3)):g}"
         if SAVE_TITLE_RE.search(line):
             head = "麦门省钱凑单"
-    return head, items, total, saved, coupon_pay
+    return head, items, total, saved, coupon_pay, kcal_total
 
 
-def html(head, items, total, saved, coupon_pay, store):
+def html(head, items, total, saved, coupon_pay, store, kcal_total=0.0):
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
     rows = "\n".join(
         f'<tr><td class="cat">{it["cat"]}</td><td>{it["name"]}'
@@ -70,6 +74,10 @@ def html(head, items, total, saved, coupon_pay, store):
     if coupon_pay:
         coupon_line = f'<div class="coupon">已用最优券，累计为你省下 ¥{coupon_pay[1]:g}</div>'
     saved_line = f'<div class="saved">本单共省 ¥{saved:g}</div>' if saved > 0 else ""
+    kcal_line = ""
+    if kcal_total > 0:
+        pm = re.search(r"(\d+)\s*人", head)
+        kcal_line = ('🔥 全单约 %g 千卡' % kcal_total) + (f" · 人均约 {kcal_total / int(pm.group(1)):g} 千卡" if pm else "")
     return f"""<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -106,6 +114,9 @@ def html(head, items, total, saved, coupon_pay, store):
   .saved {{ margin-top: 10px; text-align: center; background: #fff3cd; color: #8a6d00;
             border: 1px dashed #e0b400; border-radius: 8px; padding: 8px; font-size: 14px; font-weight: 700; }}
   .coupon {{ margin-top: 8px; text-align: center; color: #da291c; font-size: 13px; font-weight: 700; }}
+  .kcal-badge {{ margin-top: 10px; text-align: center; color: #8a6d00; font-size: 13px;
+                 background: #fdf6e3; border-radius: 8px; padding: 6px; }}
+  .kcal-badge:empty {{ display: none; }}
   .barcode {{ margin-top: 20px; height: 44px; background: repeating-linear-gradient(90deg,
       #222 0 2px, #fff 2px 5px, #222 5px 6px, #fff 6px 10px, #222 10px 13px, #fff 13px 15px); }}
   .foot {{ text-align: center; color: #b08a2e; font-size: 12px; margin-top: 12px; letter-spacing: 4px; }}
@@ -125,6 +136,7 @@ def html(head, items, total, saved, coupon_pay, store):
       <div class="total-row"><span class="label">实付</span><span class="amount">¥{total:g}</span></div>
       {saved_line}
       {coupon_line}
+      <div class="kcal-badge">{kcal_line}</div>
       <div class="barcode"></div>
       <div class="foot">总 价 由 脚 本 计 算 · 实 付 以 门 店 为 准</div>
     </div>
@@ -145,12 +157,12 @@ def main():
         ap.error("需要 --plan-file 或从管道传入 plan_meal.py 的输出")
     text = Path(args.plan_file).read_text(encoding="utf-8") if args.plan_file else sys.stdin.read()
 
-    head, items, total, saved, coupon_pay = parse(text)
+    head, items, total, saved, coupon_pay, kcal_total = parse(text)
     if not items:
         print("⚠ 未解析到任何单品行，请确认输入是 plan_meal.py 的原始输出", file=sys.stderr)
         sys.exit(1)
 
-    out = html(head, items, total, saved, coupon_pay, args.store)
+    out = html(head, items, total, saved, coupon_pay, args.store, kcal_total)
     if args.out:
         Path(args.out).write_text(out, encoding="utf-8")
         print(f"✅ 开饭确认单已生成：{args.out}")
