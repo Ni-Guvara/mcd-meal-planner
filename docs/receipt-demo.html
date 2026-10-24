@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>开饭确认单 · 大雁塔北广场店</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #ffbc0d; font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+         display: flex; justify-content: center; padding: 48px 16px; }
+  .wrap { max-width: 420px; width: 100%; }
+  .logo { text-align: center; color: #da291c; font-weight: 900; font-size: 40px;
+           letter-spacing: 2px; margin-bottom: 6px; text-shadow: 2px 2px 0 #fff; }
+  .slogan { text-align: center; color: #7a4a00; font-size: 14px; margin-bottom: 24px; }
+  .ticket { background: #fff; border-radius: 14px; padding: 28px 24px;
+             box-shadow: 0 12px 30px rgba(122, 74, 0, .35); position: relative; }
+  .ticket::before, .ticket::after {
+      content: ""; position: absolute; width: 28px; height: 28px; background: #ffbc0d;
+      border-radius: 50%; top: 50%; }
+  .ticket::before { left: -14px; } .ticket::after { right: -14px; }
+  .store { color: #da291c; font-size: 20px; font-weight: 800; }
+  .head { color: #555; font-size: 13px; margin: 4px 0 2px; }
+  .time { color: #999; font-size: 12px; margin-bottom: 16px; }
+  .dash { border-top: 2px dashed #e0d5c0; margin: 14px 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  td { padding: 7px 0; vertical-align: top; }
+  .cat { color: #fff; background: #da291c; border-radius: 4px; font-size: 11px;
+          padding: 1px 6px; margin-right: 6px; white-space: nowrap; }
+  .kcal { color: #b08a2e; font-size: 11px; margin-left: 8px; }
+  .r { text-align: right; color: #666; white-space: nowrap; }
+  .b { color: #222; font-weight: 700; }
+  .total-row { display: flex; justify-content: space-between; align-items: baseline; margin-top: 6px; }
+  .total-row .label { color: #555; font-size: 15px; }
+  .total-row .amount { color: #da291c; font-size: 34px; font-weight: 900; }
+  .saved { margin-top: 10px; text-align: center; background: #fff3cd; color: #8a6d00;
+            border: 1px dashed #e0b400; border-radius: 8px; padding: 8px; font-size: 14px; font-weight: 700; }
+  .coupon { margin-top: 8px; text-align: center; color: #da291c; font-size: 13px; font-weight: 700; }
+  .kcal-badge { margin-top: 10px; text-align: center; color: #8a6d00; font-size: 13px;
+                 background: #fdf6e3; border-radius: 8px; padding: 6px; }
+  .kcal-badge:empty { display: none; }
+  .barcode { margin-top: 20px; height: 44px; background: repeating-linear-gradient(90deg,
+      #222 0 2px, #fff 2px 5px, #222 5px 6px, #fff 6px 10px, #222 10px 13px, #fff 13px 15px); }
+  .foot { text-align: center; color: #b08a2e; font-size: 12px; margin-top: 12px; letter-spacing: 4px; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="logo">M</div>
+    <div class="slogan">i'm lovin' it · 开饭了麦门</div>
+    <div class="ticket">
+      <div class="store">麦当劳 大雁塔北广场店</div>
+      <div class="head">4 人聚餐 · 预算 ¥150</div>
+      <div class="time">确认单号 20261024-1554 · 2026-10-24 15:54</div>
+      <div class="dash"></div>
+      <table><tr><td class="cat">套餐</td><td>双层吉士堡套餐<span class="kcal">865 kcal</span></td><td class="r">×3</td><td class="r">@38</td><td class="r b">114</td></tr>
+<tr><td class="cat">套餐</td><td>麦香鱼套餐<span class="kcal">761 kcal</span></td><td class="r">×1</td><td class="r">@35</td><td class="r b">35</td></tr></table>
+      <div class="dash"></div>
+      <div class="total-row"><span class="label">实付</span><span class="amount">¥149</span></div>
+      
+      
+      <div class="kcal-badge">🔥 全单约 3356 千卡 · 人均约 839 千卡</div>
+      <div class="barcode"></div>
+      <div class="foot">总 价 由 脚 本 计 算 · 实 付 以 门 店 为 准</div>
+    </div>
+  </div>
+</body>
+</html>
