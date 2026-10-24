@@ -42,7 +42,23 @@ python "<skill目录>/scripts/plan_meal.py" --mode calorie --people 2 --budget 8
 内置算法要点（输出里的"依据"与之一一对应，不要另编理由）：
 
 1. 忌口硬过滤 → 2. 人均分档选主食（套餐 > 主食+饮品 > 1+1随心配，动态人均防吃垮预算）→ 3. 素食者固定篮子（薯条+派+饮品，麦当劳无素汉堡，如实说明）→ 4. 每人补饮品 → 5. 剩余预算按满足度/元（或/千卡）补共享小食，每种有数量上限
-2. 省钱模式三板斧：套餐 vs 散点对比 → 1+1随心配平替 → 快照价即价格上限（App 券只会更低）
+2. 省钱模式四板斧：套餐 vs 散点对比 → 1+1随心配平替 → **券最优匹配**（双路对比：优化后用券 vs 原单直接用券，取实付更低；满减券差一点时先算"凑单净省"，倒贴就提示不值）→ 快照价即价格上限
+
+### 券最优匹配（省钱模式进阶）
+
+连着 mcd-mcp 时，省钱模式先调 `available-coupons` 拿券标题，把每张券**翻译**成 JSON 传给脚本 `--coupons`。券模型（脚本头部注释同款，一张订单只能用一张券）：
+
+```json
+[
+  {"name":"免费脆薯饼","type":"free_item","item":"脆薯饼"},
+  {"name":"11.9元麦辣鸡腿堡","type":"fixed_price","item":"麦辣鸡腿堡","price":11.9},
+  {"name":"19.9元王牌炸鸡任选2","type":"fixed_price_n","items":["麦辣鸡翅2块","麦乐鸡5块"],"count":2,"price":19.9},
+  {"name":"满40减10","type":"threshold_discount","threshold":40,"discount":10},
+  {"name":"全场8.8折","type":"percent","percent":0.88}
+]
+```
+
+翻译规则：`item`/`items` 必须用 menu.csv（或 MCP 菜单）里的**确切单品名**；"XX元XX"标题 → `fixed_price`；"免费XX" → `free_item`；"N件任选" → `fixed_price_n`；满减/折扣按字面。翻译不准的（如通用代金券）宁可不传，别猜。
 
 ## mcd-mcp 数据源（实时数据优先，官方能力）
 
@@ -54,7 +70,7 @@ python "<skill目录>/scripts/plan_meal.py" --mode calorie --people 2 --budget 8
 |---|---|
 | 套餐推荐 / 菜单 | `query-meals`（当前可售菜单）→ `query-meal-detail`（套餐组成/可替换项） |
 | 热量配套餐 | `list-nutrition-foods`（**官方营养数据：能量/蛋白质/脂肪/钠**，优先于快照估算） |
-| 麦门省钱凑单 | `available-coupons`/`query-my-coupons`（领券查券）→ 脚本算散点/1+1 → `calculate-price`（含券实付价，最终以它为准） |
+| 麦门省钱凑单 | `available-coupons`/`query-my-coupons`（券标题翻译成 `--coupons` JSON）→ 脚本算散点/1+1/券最优匹配 → `calculate-price`（含券实付价，最终以它为准） |
 | 活动新品 | `campaign-calendar`（活动日历）、`mall-points-products`（积分商城） |
 | 真点餐（进阶） | `query-nearby-stores`/`delivery-query-stores` → `create-order` → `query-order`；取消用 `cancel-order` |
 | 积分福利 | `query-my-account`（积分）、`auto-bind-coupons`（一键领券）、`draw-lottery`（抽奖） |
