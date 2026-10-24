@@ -180,7 +180,7 @@ def plan_meal(people, budget, no_spicy, no_beef, veg_count, pescatarian):
 
     kcal = sum(it["calories"] * q for it, q in chosen)
     lines = [f"=== 聚餐方案 | {people} 人 | 预算 {budget:g} 元（人均 {tier:.1f}）==="]
-    lines += fmt_list(chosen)
+    lines += fmt_list(chosen, show_kcal=True)
     lines.append(f"合计：{total:.1f} 元 | 预算剩余：{budget - total:.1f} 元 | 全单约 {kcal:.0f} 千卡")
     lines += notes_block(notes, [
         f"人均 {tier:.1f} 元 → 按档位选主食（套餐优先 > 主食+饮品 > 1+1随心配）",
