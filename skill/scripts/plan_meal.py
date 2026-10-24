@@ -17,6 +17,7 @@ import sys
 from pathlib import Path
 
 MENU_PATH = Path(__file__).resolve().parent.parent / "references" / "menu.csv"
+DEMO_COUPONS_PATH = Path(__file__).resolve().parent.parent / "references" / "demo_coupons.json"
 
 
 def load_menu():
@@ -488,6 +489,10 @@ def main():
     ap.add_argument("--coupons", type=str, default="",
                     help='省钱模式：券列表 JSON，如 [{"name":"11.9元麦辣鸡腿堡","type":"fixed_price","item":"麦辣鸡腿汉堡","price":11.9}]'
                          " 券类型见脚本头部注释")
+    ap.add_argument("--menu", type=str, default="",
+                    help="用自定义菜单 CSV 覆盖内置快照（如：把 MCP query-meals 实时价写进临时 CSV 后传进来）")
+    ap.add_argument("--demo", action="store_true",
+                    help="离线演示模式：无需 MCP token，用内置 demo 券数据跑一个省钱凑单示例")
     ap.add_argument("--no-spicy", action="store_true")
     ap.add_argument("--no-beef", action="store_true")
     ap.add_argument("--veg", type=int, default=0)
@@ -499,6 +504,20 @@ def main():
             sys.stdout.reconfigure(encoding="utf-8")
         except Exception:
             pass
+
+    if args.menu.strip():
+        globals()["MENU_PATH"] = Path(args.menu)
+
+    if args.demo:
+        if not DEMO_COUPONS_PATH.exists():
+            ap.error("演示模式需要 references/demo_coupons.json（随 skill 分发，缺失请重新安装）")
+        with open(DEMO_COUPONS_PATH, encoding="utf-8") as f:
+            demo_coupons = json.load(f)
+        demo_items = ["麦辣鸡腿堡", "脆薯饼", "可口可乐(中)"]
+        lines = ["【演示模式】离线数据 + 内置示例券，无需 MCP token，价格非实时"]
+        lines += plan_save(demo_items, False, False, demo_coupons)
+        print("\n".join(lines))
+        return
 
     if args.mode == "save":
         items = [s.strip() for s in args.items.split(",") if s.strip()]
