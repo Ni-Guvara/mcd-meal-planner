@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>麦门全能点餐助手 · 基于麦当劳 MCP 的 WorkBuddy 用餐 Skill</title>
+<style>
+  :root { --yellow:#ffbc0d; --red:#da291c; --dark:#1a1a1a; --gray:#666; --cream:#fdf6e3; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:"PingFang SC","Microsoft YaHei",-apple-system,sans-serif; color:var(--dark);
+         background:#fff; line-height:1.7; }
+  .wrap { max-width:960px; margin:0 auto; padding:0 24px; }
+  header { background:var(--yellow); padding:64px 0 56px; text-align:center; }
+  .badge { display:inline-block; background:var(--red); color:#fff; font-size:13px; font-weight:700;
+           padding:6px 16px; border-radius:99px; letter-spacing:.5px; }
+  h1 { font-size:52px; color:var(--red); margin:20px 0 12px; letter-spacing:2px; }
+  .sub { font-size:20px; color:#7a4a00; font-weight:600; }
+  .lead { max-width:640px; margin:20px auto 0; color:#7a4a00; font-size:15px; }
+  .cta { margin-top:28px; display:flex; gap:14px; justify-content:center; flex-wrap:wrap; }
+  .btn { display:inline-block; padding:12px 26px; border-radius:99px; font-weight:700; font-size:15px;
+         text-decoration:none; }
+  .btn-main { background:var(--red); color:#fff; }
+  .btn-ghost { background:#fff; color:var(--red); border:2px solid var(--red); }
+  section { padding:56px 0; }
+  h2 { font-size:28px; margin-bottom:8px; }
+  h2 .n { color:var(--yellow); -webkit-text-stroke:1px #b8860b; margin-right:10px; }
+  .note { color:var(--gray); font-size:14px; margin-bottom:26px; }
+  .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:18px; }
+  .card { border:1px solid #eee; border-radius:14px; padding:22px; background:#fff;
+          box-shadow:0 4px 16px rgba(0,0,0,.05); }
+  .card h3 { font-size:16px; color:var(--red); margin-bottom:8px; }
+  .card p { font-size:14px; color:#444; }
+  .q { font-size:13px; color:var(--gray); background:var(--cream); border-left:3px solid var(--yellow);
+       padding:8px 12px; border-radius:6px; margin-bottom:14px; font-style:italic; }
+  .mono { font-family:ui-monospace,Consolas,monospace; }
+  pre { background:#161616; color:#e8e8e8; padding:18px; border-radius:12px; overflow-x:auto;
+        font-size:13px; line-height:1.6; }
+  pre .g { color:#8bd450; } pre .y { color:#ffd166; } pre .c { color:#8a8a8a; }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th,td { text-align:left; padding:10px 12px; border-bottom:1px solid #eee; }
+  th { color:var(--gray); font-weight:600; font-size:13px; }
+  td.ok { color:#0a7d33; font-weight:700; }
+  .receipt { max-width:380px; margin:0 auto; background:#fff; border-radius:14px; padding:26px 22px;
+             box-shadow:0 12px 30px rgba(122,74,0,.18); border-top:6px solid var(--yellow); }
+  .r-head { color:var(--red); font-weight:800; font-size:18px; }
+  .r-row { display:flex; justify-content:space-between; font-size:14px; padding:6px 0; }
+  .r-row .kcal { color:#b08a2e; font-size:11px; display:block; }
+  .r-line { border-top:2px dashed #e8dfc9; margin:12px 0; }
+  .r-total { display:flex; justify-content:space-between; align-items:baseline; }
+  .r-total .lbl { color:#555; }
+  .r-total .amt { color:var(--red); font-size:30px; font-weight:900; }
+  .r-saved { text-align:center; background:var(--cream); border:1px dashed #e0b400; color:#8a6d00;
+             border-radius:8px; padding:7px; font-size:13px; font-weight:700; margin-top:10px; }
+  footer { background:#161616; color:#aaa; padding:32px 0; font-size:13px; text-align:center; }
+  footer a { color:var(--yellow); text-decoration:none; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <span class="badge">WorkBuddy Skill · 麦当劳中国官方 MCP</span>
+    <h1>麦门全能点餐助手</h1>
+    <div class="sub">一句话点单，一张小票交付</div>
+    <p class="lead">搭配、总价、热量全部由确定性脚本计算 —— 大模型负责听懂人话，算术交给代码，评委拿计算器核对一分不差。</p>
+    <div class="cta">
+      <a class="btn btn-main" href="https://github.com/Ni-Guvara/mcd-meal-planner">GitHub 仓库</a>
+      <a class="btn btn-ghost" href="#demo">看三个实测案例</a>
+    </div>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <h2><span class="n">01</span>它解决什么问题</h2>
+    <p class="note">麦当劳 App 只会向你推销，不会替你优化。</p>
+    <div class="cards">
+      <div class="card">
+        <h3>人多就乱</h3>
+        <p>4 个人 150 块、有人不吃辣、有人吃素 —— 怎么配才既吃够又不超预算？心算永远差一口气。</p>
+      </div>
+      <div class="card">
+        <h3>省钱靠猜</h3>
+        <p>单点、套餐、1+1 随心配、优惠券四条价格通道同时存在。同一份清单不同买法差几十块，而「满 40 减 10」和「8.8 折」谁更省，取决于这单构成。</p>
+      </div>
+      <div class="card">
+        <h3>热量是黑箱</h3>
+        <p>套餐营养数据不公开，菜单只标单价。减脂期想吃一顿麦当劳，没人告诉你这单到底多少卡。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="demo" style="background:#fffdf6;">
+  <div class="wrap">
+    <h2><span class="n">02</span>三个实测案例（2026-10-24 · 大雁塔北广场店）</h2>
+    <p class="note">下面每个数字都是脚本算的、并经麦当劳 MCP <span class="mono">calculate-price</span> 核价。</p>
+    <div class="cards">
+
+      <div class="card">
+        <div class="q">「4 个人 150 块，两人不吃辣」</div>
+        <h3>聚餐点餐</h3>
+        <table>
+          <tr><td>双层吉士堡套餐 ×3</td><td>¥114</td></tr>
+          <tr><td>麦香鱼套餐 ×1</td><td>¥35</td></tr>
+          <tr><td><b>合计</b></td><td><b>¥149</b>（剩 ¥1）</td></tr>
+        </table>
+        <p style="margin-top:10px">忌辣单品硬过滤，全单 3356 千卡；MCP 实时核价 <b>148.50 元</b>，与脚本预算误差 0.5 元。</p>
+      </div>
+
+      <div class="card">
+        <div class="q">「麦辣鸡腿堡+脆薯饼+可乐，怎么买最省」</div>
+        <h3>省钱凑单 · 券最优匹配</h3>
+        <table>
+          <tr><td>原价单</td><td>¥44</td></tr>
+          <tr><td>1+1 随心配平替</td><td>省 ¥21.1</td></tr>
+          <tr><td>免费脆薯饼券</td><td>省 ¥9.0</td></tr>
+          <tr><td><b>券后实付</b></td><td><b>¥13.9</b></td></tr>
+        </table>
+        <p style="margin-top:10px">满减券差 17.1 元，脚本算完提示：加 18.5 元大薯条凑单「倒贴 8.5 元，不值」。</p>
+      </div>
+
+      <div class="card">
+        <div class="q">「2 个人 80 块，每人 700 卡以内」</div>
+        <h3>热量配餐</h3>
+        <table>
+          <tr><td>主食热量上限</td><td>65%（留小食空间）</td></tr>
+          <tr><td>饮品策略</td><td>零卡优先</td></tr>
+          <tr><td>实测</td><td>人均 511 / 700 千卡</td></tr>
+          <tr><td><b>实付</b></td><td><b>¥35.5</b></td></tr>
+        </table>
+        <p style="margin-top:10px">热量值全部来自 MCP <span class="mono">list-nutrition-foods</span> 官方营养数据（160 项）。</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2><span class="n">03</span>输出长这样：开饭确认单</h2>
+    <p class="note">方案不停在终端文本，管道进 make_receipt.py 直接出可截图传播的小票。</p>
+    <div class="receipt">
+      <div class="r-head">麦当劳 大雁塔北广场店</div>
+      <div style="color:#666;font-size:13px;margin-bottom:14px">4 人聚餐 · 预算 ¥150</div>
+      <div class="r-row"><span>双层吉士堡套餐 ×3<span class="kcal">865 kcal/份</span></span><span>¥114.0</span></div>
+      <div class="r-row"><span>麦香鱼套餐 ×1<span class="kcal">761 kcal/份</span></span><span>¥35.0</span></div>
+      <div class="r-line"></div>
+      <div class="r-total"><span class="lbl">实付</span><span class="amt">¥149</span></div>
+      <div class="r-saved">🔥 全单约 3356 千卡 · 人均约 839 千卡</div>
+    </div>
+  </div>
+</section>
+
+<section style="background:#fffdf6;">
+  <div class="wrap">
+    <h2><span class="n">04</span>30 秒跑起来（不需要 Token）</h2>
+    <pre><span class="c"># 离线演示模式：内置真实券快照，零 Token 零联网</span>
+git clone https://github.com/Ni-Guvara/mcd-meal-planner.git
+cd mcd-meal-planner/skill/scripts
+python plan_meal.py <span class="y">--demo</span>
+
+<span class="c"># 想吃什么直接问：</span>
+python plan_meal.py --mode save --items <span class="g">"麦辣鸡腿堡,脆薯饼,可口可乐(中)"</span>
+python plan_meal.py --people 4 --budget 150 --no-spicy
+python plan_meal.py --mode calorie --people 2 --budget 80 --calorie-max 700
+
+<span class="c"># 出小票</span>
+python plan_meal.py --people 4 --budget 150 | python make_receipt.py --store <span class="g">"大雁塔北广场店"</span> --out 确认单.html</pre>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2><span class="n">05</span>架构：把「算」和「说」分开</h2>
+    <p class="note">上千套组合的枚举是纯数学问题 —— 交给大模型又慢又会算错钱，交给脚本几毫秒出解、可复现、可验算。</p>
+    <pre>用户说人话  ──►  大模型理解意图（人数/预算/忌口/热量目标）
+                        │
+                        ▼
+          麦当劳官方 MCP 实时数据（门店/菜单/价格/营养/券）
+                        │
+                        ▼
+        求解脚本（纯本地 · 零 token · 确定性）
+   忌口硬过滤 → 分档选主食 → 平替换算 → 券最优匹配 → 凑单陷阱判断
+                        │
+                        ▼
+        calculate-price 官方核价 ──►  方案 + 总价 + 热量 + 依据</pre>
+  </div>
+</section>
+
+<section style="background:#fffdf6;">
+  <div class="wrap">
+    <h2><span class="n">06</span>MCP 实测：七个工具全部打通</h2>
+    <table>
+      <tr><th>工具</th><th>用途</th><th>结果</th></tr>
+      <tr><td class="mono">now-time-info</td><td>服务器时间</td><td class="ok">200</td></tr>
+      <tr><td class="mono">query-nearby-stores</td><td>附近门店（308 米）</td><td class="ok">200</td></tr>
+      <tr><td class="mono">query-meals</td><td>实时菜单（12 分类 · 约 100 商品）</td><td class="ok">200</td></tr>
+      <tr><td class="mono">list-nutrition-foods</td><td>官方营养（160 项）</td><td class="ok">200</td></tr>
+      <tr><td class="mono">available-coupons</td><td>可领券（免费脆薯饼等 3 张）</td><td class="ok">200</td></tr>
+      <tr><td class="mono">calculate-price</td><td>实付核价（148.50 元）</td><td class="ok">200</td></tr>
+      <tr><td class="mono">campaign-calendar</td><td>当月活动（GD 联名等）</td><td class="ok">200</td></tr>
+    </table>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    麦门全能点餐助手 · WorkBuddy Skill · 麦当劳程序员创意开发大赛 &amp; 1024 切磋大会用餐赛道参赛作品<br>
+    <a href="https://github.com/Ni-Guvara/mcd-meal-planner">github.com/Ni-Guvara/mcd-meal-planner</a> ·
+    数据来自麦当劳中国官方 MCP，价格以门店为准 · 本站非麦当劳官方产品
+  </div>
+</footer>
+
+</body>
+</html>
