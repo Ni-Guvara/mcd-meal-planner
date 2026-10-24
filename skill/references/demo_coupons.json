@@ -1,0 +1,6 @@
+[
+  {"name": "免费脆薯饼", "type": "free_item", "item": "脆薯饼"},
+  {"name": "11.9元麦辣鸡腿堡", "type": "fixed_price", "item": "麦辣鸡腿堡", "price": 11.9},
+  {"name": "19.9元王牌炸鸡任选2", "type": "fixed_price_n", "items": ["麦辣鸡翅2块", "麦乐鸡5块", "麦辣鸡翅4块"], "count": 2, "price": 19.9},
+  {"name": "满40减10", "type": "threshold_discount", "threshold": 40, "discount": 10}
+]
